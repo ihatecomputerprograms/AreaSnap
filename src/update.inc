@@ -3,7 +3,6 @@ proc check_update
 locals 
     gethash     rb 65
     getKey      rb MAX_PATH+1
-    lpbuffer    rb MAX_PATH+1
 endl
 
 frame
@@ -12,23 +11,15 @@ frame
     je         @f
     mov        rbx, rax ; save heap
 
-    lea        rcx, qword[rbx] 
-    lea        rdx, qword[url_api]
-    call       get_lpbuffer_into_heap
+    fastcall   open_internet, rbx, url_api
     test       rax, rax
     je         @f
 
-    lea        rcx, qword[key]
-    lea        rdx, qword[rbx]
-    lea        r8,  qword[getKey]
-    mov        r9,  key.sizeof
-    mov        qword[rsp+20], 0
-    call       SSE_json_parser
+    fastcall   SSE_json_parser, key, rbx, addr getKey, key.sizeof, 0
     test       rax, rax
     je         @f
 
-    lea        rcx, qword[gethash]
-    call       get_self_filehash 
+    fastcall   get_self_filehash, addr gethash
 
     lea        rsi, qword[gethash]
     lea        rdi, qword[getKey]
@@ -37,57 +28,24 @@ frame
     repe       cmpsq  
     je         @f
 
-    lea        rcx, qword[key3]
-    lea        rdx, qword[rbx]
-    lea        r8,  qword[getKey]
-    mov        r9,  key3.sizeof
-    mov        qword[rsp+20], 1
-    call       SSE_json_parser     
+    fastcall   SSE_json_parser, key3, rbx, addr getKey, key3.sizeof, 1    
     test       rax, rax
     je         @f
 
-    mov        r13, rax
-    lea        rsi, qword[getKey]
-    xor        rcx, rcx
-
-.buf_to_buf:
-    lodsb
-    mov        byte[lpbuffer+rcx], al
-    cmp        rcx, r13
-    jge        .next
-
-    inc        rcx
-    jmp        .buf_to_buf
- 
-.next:                                   ; если что-то встанет на 1 место вместо *.exe в release, то программа помрет, заменив собой *.asm
-    mov        byte[lpbuffer+r13], 0
-    mov        ax, word[ext]             ; проверка на .exe
-    cmp        word[lpbuffer+r13-4], ax
-    jne        @f
-
-    lea        rcx, qword[key2]
-    lea        rdx, qword[rbx]
-    lea        r8,  qword[getKey]
-    mov        r9,  key2.sizeof
-    mov        qword[rsp+20], 0
-    call       SSE_json_parser     
-    test       rax, rax
-    je         @f
-
-    lea        rcx, qword[rbx] ;overwtire
-    lea        rdx, qword[getKey]
-    call       get_lpbuffer_into_heap
-    test       rax, rax
-    je         @f
-
-    mov        r15, rax ; save bytesread
-
-    invoke     CreateFile, addr lpbuffer, GENERIC_READ or GENERIC_WRITE, 0,0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
+    invoke     CreateFile, addr getKey, GENERIC_READ or GENERIC_WRITE, 0,0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
     cmp        rax, INVALID_HANDLE_VALUE
     je         @f
     mov        r14, rax 
 
-    invoke     WriteFile, r14, rbx, r15, 0,0 
+    fastcall   SSE_json_parser, key2, rbx, addr getKey, key2.sizeof, 0     
+    test       rax, rax
+    je         @f
+
+    fastcall   open_internet, rbx, addr getKey
+    test       rax, rax
+    je         @f
+
+    invoke     WriteFile, r14, rbx, rax, 0,0 
     invoke     CloseHandle, r14
 
     call       self_delete_prog 
@@ -97,7 +55,7 @@ endf
     ret  
 endp
 
-proc get_lpbuffer_into_heap uses rbx rsi rdi r12, lpbuffer, url
+proc open_internet uses rbx rsi rdi r12 r13 r14 r15, lpbuffer, url
 
 locals 
     bytesread  dq ?
@@ -142,6 +100,7 @@ proc SSE_json_parser uses rbx rsi rdi r12 r13 r14 r15, input_key, input_lpbuffer
     mov         r15, rcx
     mov         r12, qword[duplicate]
     inc         r12
+    xor         r14, r14
 
     lea         r11, qword[r15]
     movdqu      xmm6, dqword[r15]
@@ -174,7 +133,7 @@ proc SSE_json_parser uses rbx rsi rdi r12 r13 r14 r15, input_key, input_lpbuffer
 
     inc        r14
 
-    test       r14, r12
+    cmp        r14, r12
     jne        .search
     
     add        rsi, 3
@@ -191,6 +150,7 @@ proc SSE_json_parser uses rbx rsi rdi r12 r13 r14 r15, input_key, input_lpbuffer
 
 .exit:
     mov        rax, rcx
+    mov        byte[r8+rcx], 0
 @@:
     ret
  
