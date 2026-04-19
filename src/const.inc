@@ -108,3 +108,5 @@ struct FILE_DISPOSITION_INFO ; https://learn.microsoft.com/en-us/windows/win32/a
   DeleteFile db ? 
 
 ends
+
+LOCAL_SYSTEM_DEFAULT = 0x0800

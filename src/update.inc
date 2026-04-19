@@ -1,60 +1,3 @@
-proc check_update 
-
-locals 
-    gethash     rb 65
-    getKey      rb MAX_PATH+1
-endl
-
-frame
-    invoke     GlobalAlloc, GPTR, 15000
-    test       rax, rax
-    je         @f
-    mov        rbx, rax ; save heap
-
-    fastcall   open_internet, rbx, url_api
-    test       rax, rax
-    je         @f
-
-    fastcall   SSE_json_parser, key, rbx, addr getKey, key.sizeof, 0
-    test       rax, rax
-    je         @f
-
-    fastcall   get_self_filehash, addr gethash
-
-    lea        rsi, qword[gethash]
-    lea        rdi, qword[getKey]
-    add        rdi, 7
-    mov        rcx, 4
-    repe       cmpsq  
-    je         @f
-
-    fastcall   SSE_json_parser, key3, rbx, addr getKey, key3.sizeof, 1    
-    test       rax, rax
-    je         @f
-
-    invoke     CreateFile, addr getKey, GENERIC_READ or GENERIC_WRITE, 0,0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
-    cmp        rax, INVALID_HANDLE_VALUE
-    je         @f
-    mov        r14, rax 
-
-    fastcall   SSE_json_parser, key2, rbx, addr getKey, key2.sizeof, 0     
-    test       rax, rax
-    je         @f
-
-    fastcall   open_internet, rbx, addr getKey
-    test       rax, rax
-    je         @f
-
-    invoke     WriteFile, r14, rbx, rax, 0,0 
-    invoke     CloseHandle, r14
-
-    call       self_delete_prog 
-@@:
-    invoke     GlobalFree, rbx 
-endf
-    ret  
-endp
-
 proc open_internet uses rbx rsi rdi r12 r13 r14 r15, lpbuffer, url
 
 locals 
@@ -67,17 +10,15 @@ endl
 frame
     invoke     InternetOpen, szClass, INTERNET_OPEN_TYPE_DIRECT, 0,0,0 
     test       rax, rax
-    je         .error
+    je         @f
     mov        rbx, rax
    
     invoke     InternetOpenUrl, rbx, rdi, 0,0,0,0
     test       rax,rax
-    je         .error
+    je         @f
     mov        rsi, rax
 
     invoke     InternetReadFile, rsi, r12, 15000, addr bytesread   
-    test       rax, rax
-    je         .error
 
 @@: 
     invoke     InternetCloseHandle, rbx
@@ -87,13 +28,9 @@ frame
     invoke     InternetCloseHandle, rsi
 
 .exit:  
-    mov        rax, qword[bytesread]
+    mov        rax,[bytesread]
 endf    
     ret
-
-.error:
-    invoke     GetLastError 
-    jmp        @b
 endp
 
 proc SSE_json_parser uses rbx rsi rdi r12 r13 r14 r15, input_key, input_lpbuffer, getKey, sizekey, duplicate 
@@ -233,15 +170,15 @@ endp
 proc self_delete_prog uses rbx rsi rdi r12
 
 locals
-    renameinfo       FILE_RENAME_INFO TRUE, NULL, temp_stream_name.sizeof ; remove
-    dispositionInfo  FILE_DISPOSITION_INFO TRUE
+    fri  FILE_RENAME_INFO TRUE, NULL, temp_stream_name.sizeof 
+    fdi  FILE_DISPOSITION_INFO TRUE
     
-    lpbuffer         rb MAX_PATH+1
+    lpbuffer rb MAX_PATH+1
 endl
 
-    lea        rsi, qword[temp_stream_name]                    ; also remove
-    lea        rdi, qword[renameinfo.FileName]
-    mov        ecx, dword[renameinfo.FileNameLength]  
+    lea        rsi,[temp_stream_name]
+    lea        rdi,[fri.FileName]
+    mov        ecx,[fri.FileNameLength]  
     rep        movsw
 
 frame
@@ -249,13 +186,13 @@ frame
     invoke     CreateFileW, addr lpbuffer, DELETE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
     mov        rbx, rax
 
-    invoke     SetFileInformationByHandle, rbx, FileRenameInfo, addr renameinfo, sizeof.FILE_RENAME_INFO
+    invoke     SetFileInformationByHandle, rbx, FileRenameInfo, addr fri, sizeof.FILE_RENAME_INFO
     invoke     CloseHandle, rbx
 
     invoke     CreateFileW, addr lpbuffer, DELETE, FILE_SHARE_READ or FILE_SHARE_WRITE or FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL 
     mov        rbx, rax
 
-    invoke     SetFileInformationByHandle, rbx, FileDispositionInfo, addr dispositionInfo, sizeof.FILE_DISPOSITION_INFO
+    invoke     SetFileInformationByHandle, rbx, FileDispositionInfo, addr fdi, sizeof.FILE_DISPOSITION_INFO
     invoke     CloseHandle, rbx
 endf
     ret

@@ -3,7 +3,7 @@ include 'win64a.inc'
 include 'const.inc'
 entry main
 
-section '.text' readable executable
+section '.text' code readable executable
 include 'update.inc' 
 include 'graphic.inc'
 
@@ -173,6 +173,63 @@ endf
     ret
 endp
 
+proc check_update 
+
+locals 
+    gethash     rb 65
+    getKey      rb MAX_PATH+1
+endl
+
+frame
+    invoke     GlobalAlloc, GPTR, 15000
+    test       rax, rax
+    je         @f
+    mov        rbx, rax ; save heap
+
+    fastcall   open_internet, rbx, url_api
+    test       rax, rax
+    je         @f
+
+    fastcall   SSE_json_parser, key, rbx, addr getKey, key.sizeof, 0
+    test       rax, rax
+    je         @f
+
+    fastcall   get_self_filehash, addr gethash
+
+    lea        rsi, qword[gethash]
+    lea        rdi, qword[getKey]
+    add        rdi, 7
+    mov        rcx, 4
+    repe       cmpsq  
+    je         @f
+
+    fastcall   SSE_json_parser, key3, rbx, addr getKey, key3.sizeof, 1    
+    test       rax, rax
+    je         @f
+
+    invoke     CreateFile, addr getKey, GENERIC_READ or GENERIC_WRITE, 0,0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
+    cmp        rax, INVALID_HANDLE_VALUE
+    je         @f
+    mov        r14, rax 
+
+    fastcall   SSE_json_parser, key2, rbx, addr getKey, key2.sizeof, 0     
+    test       rax, rax
+    je         @f
+
+    fastcall   open_internet, rbx, addr getKey
+    test       rax, rax
+    je         @f
+
+    invoke     WriteFile, r14, rbx, rax, 0,0 
+    invoke     CloseHandle, r14
+
+    call       self_delete_prog 
+@@:
+    invoke     GlobalFree, rbx 
+endf
+    ret  
+endp
+
 section '.bss' readable writeable
 screen_width    dd ?
 screen_height   dd ?
@@ -183,10 +240,9 @@ hWhitePen       dq ?
 flag            db ?
 
 section '.data' readable writeable
-wc    WNDCLASSEX sizeof.WNDCLASSEX, 0, AreaSnap, 0,0,0,0,0,0,0, szClass, 0 
-rect  RECT
-GDI   GdiplusStartupInput 1
-;renameinfo       FILE_RENAME_INFO TRUE, NULL, temp_stream_name.sizeof, temp_stream_name ;add
+wc WNDCLASSEX sizeof.WNDCLASSEX, 0, AreaSnap, 0,0,0,0,0,0,0, szClass, 0 
+rect RECT
+GDI GdiplusStartupInput 1
 
 szClass db 'AreaSnap',0
 .sizeof = $ - szClass
@@ -209,9 +265,12 @@ key2 db 'browser_download_url',0
 key3 db 'name',0
 .sizeof = $ - key3
 
-szScreenshotName  du 'screenshot.png', 0
 encoder du 'image/png',0
 .sizeof = $ - encoder  
+
+EnvVariable du 'USERPROFILE',0
+lpformat_data du '\Pictures\yyyy-MM-dd',0
+lpformat_time du 'HH-mm-ss.png',0
 
 data import
   library kernel32, 'KERNEL32.DLL',\
@@ -261,8 +320,8 @@ section '.rsrc' resource data readable
 
   versioninfo version, VOS__WINDOWS32, VFT_APP, VFT2_UNKNOWN, LANG_ENGLISH+SUBLANG_DEFAULT, 0,\
       'FileDescription', 'Screenshot capture',\
-      'LegalCopyright', <'2025 @ihatecomputerprograms.'>,\
-      'ProductVersion', '0.0.1',\
+      'LegalCopyright', <'2026 @ihatecomputerprograms.'>,\
+      'ProductVersion', '0.0.2',\
       'OriginalFilename', 'AreaSnap.exe'
       
 section '.reloc' data readable discardable fixups

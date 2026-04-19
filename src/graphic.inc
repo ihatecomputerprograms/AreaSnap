@@ -1,11 +1,13 @@
 proc screenshot uses rbx rsi rdi r12 r13 r14 r15, width, height
 
 locals
+    st            SYSTEMTIME
     token         dq ?
     size          dq ?
     numEncoders   dq ?
     gdip_bitmap   dq ?
     encoder_clsid db 16 dup ?
+    lpDataStr     db 255 dup ?
 endl
 
     mov        r14d, ecx ; width
@@ -78,7 +80,23 @@ frame
     test       rax, rax
     jnz        .delete_dc
 
-    invoke     GdipSaveImageToFile, qword[gdip_bitmap], addr szScreenshotName, addr encoder_clsid, 0
+    invoke     GetLocalTime, addr st
+
+    lea        r15, qword[lpDataStr]
+    invoke     GetEnvironmentVariableW, EnvVariable, r15, 255
+    imul       rax, 2
+    add        r15, rax
+
+    invoke     GetDateFormatW, LOCAL_SYSTEM_DEFAULT, 0, addr st, lpformat_data, r15, 255
+    imul       rax, 2
+    add        r15, rax
+    sub        r15, 2
+
+    invoke     GetTimeFormatW, LOCAL_SYSTEM_DEFAULT, 0, addr st, lpformat_time, r15, 255   
+    ; imul       rax, 2
+    ; add        r15, rax ; for feature!
+
+    invoke     GdipSaveImageToFile, qword[gdip_bitmap], addr lpDataStr, addr encoder_clsid, 0
     invoke     GdipDisposeImage, qword[gdip_bitmap]
 
 .delete_dc:
