@@ -7,12 +7,10 @@ section '.text' code readable executable
 include 'update.inc' 
 include 'graphic.inc'
 
-proc main
+proc main, hThread
 
 locals 
     msg          MSG
-    
-    hThread      dq ?
 endl
 
 frame  
@@ -186,8 +184,9 @@ frame
     je         @f
     mov        rbx, rax ; save heap
 
-    fastcall   open_internet, rbx, url_api
-    test       rax, rax
+    lea        rsi,[url_api] ; fastcall   open_internet, rbx, url_api
+    call       open_internet
+    test       rax,rax
     je         @f
 
     fastcall   SSE_json_parser, key, rbx, addr getKey, key.sizeof, 0
@@ -196,10 +195,10 @@ frame
 
     fastcall   get_self_filehash, addr gethash
 
-    lea        rsi, qword[gethash]
-    lea        rdi, qword[getKey]
-    add        rdi, 7
-    mov        rcx, 4
+    lea        rsi,[gethash]
+    lea        rdi,[getKey]
+    add        rdi,7
+    mov        rcx,4
     repe       cmpsq  
     je         @f
 
@@ -216,8 +215,9 @@ frame
     test       rax, rax
     je         @f
 
-    fastcall   open_internet, rbx, addr getKey
-    test       rax, rax
+    lea        rsi,[getKey] ; fastcall   open_internet, rbx, addr getKey
+    call       open_internet
+    test       rax,rax
     je         @f
 
     invoke     WriteFile, r14, rbx, rax, 0,0 
@@ -247,12 +247,10 @@ GDI GdiplusStartupInput 1
 szClass db 'AreaSnap',0
 .sizeof = $ - szClass
 
-ext db '.exe',0
- 
 url_api db 'https://api.github.com/repos/ihatecomputerprograms/AreaSnap/releases',0
 
-temp_stream_name du ':wtfbbq',0 
-.sizeof = $ - temp_stream_name    
+ads du ':wtfbbq',0 
+.sizeof = $ - ads    
 
 BCRYPT_SHA256_ALGORITHM du 'SHA256',0
 
@@ -295,15 +293,15 @@ data import
           GdipCreateBitmapFromHBITMAP,'GdipCreateBitmapFromHBITMAP'   
 
   import bcrypt,\
-           BCryptOpenAlgorithmProvider, 'BCryptOpenAlgorithmProvider',\
-           BCryptCreateHash, 'BCryptCreateHash',\
-           BCryptHashData, 'BCryptHashData',\
-           BCryptFinishHash, 'BCryptFinishHash',\  
-           BCryptDestroyHash, 'BCryptDestroyHash',\
-           BCryptCloseAlgorithmProvider, 'BCryptCloseAlgorithmProvider' 
+          BCryptOpenAlgorithmProvider, 'BCryptOpenAlgorithmProvider',\
+          BCryptCreateHash, 'BCryptCreateHash',\
+          BCryptHashData, 'BCryptHashData',\
+          BCryptFinishHash, 'BCryptFinishHash',\  
+          BCryptDestroyHash, 'BCryptDestroyHash',\
+          BCryptCloseAlgorithmProvider, 'BCryptCloseAlgorithmProvider' 
 
-import crypt32,\
-           CryptBinaryToString, 'CryptBinaryToStringA'
+  import crypt32,\
+          CryptBinaryToString, 'CryptBinaryToStringA'
 
   import wininet,\
           InternetOpen, 'InternetOpenA',\
@@ -312,7 +310,7 @@ import crypt32,\
           InternetCloseHandle, 'InternetCloseHandle'      
 end data
 
-section '.rsrc' resource data readable
+section '.rsrc' resource readable
   directory RT_VERSION, versions
 
   resource versions,\

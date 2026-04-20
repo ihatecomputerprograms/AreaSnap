@@ -1,11 +1,8 @@
-proc screenshot uses rbx rsi rdi r12 r13 r14 r15, width, height
+proc screenshot uses rbx rsi rdi r12 r13 r14 r15, token, size, numEncoders, gdip_bitmap
 
 locals
     st            SYSTEMTIME
-    token         dq ?
-    size          dq ?
-    numEncoders   dq ?
-    gdip_bitmap   dq ?
+
     encoder_clsid db 16 dup ?
     lpDataStr     db 255 dup ?
 endl
@@ -16,7 +13,7 @@ endl
 frame
     invoke     GdiplusStartup, addr token, addr GDI, 0
     test       rax, rax
-    jnz        .error
+    jnz        .exit
 
     invoke     GdipGetImageEncodersSize, addr numEncoders, addr size
     test       rax, rax
@@ -24,12 +21,12 @@ frame
         
     invoke     GlobalAlloc, GPTR, qword[size]
     test       rax, rax
-    je         .error
+    je         .exit
     mov        rbx, rax
 
     invoke     GdipGetImageEncoders, qword[numEncoders], qword[size], rbx
     test       rax, rax
-    jnz        .error
+    jnz        .exit
 
     mov        r12, rbx
     mov        r13, qword[numEncoders]
@@ -44,7 +41,7 @@ frame
     add        r12, sizeof.ImageCodecInfo
     dec        r13
     jnz        @b
-    jmp        .error
+    jmp        .exit
 
 @@:
     lea        rsi, qword[r12 + ImageCodecInfo.Clsid] 
@@ -56,7 +53,7 @@ frame
 
     invoke     GetDC, 0
     test       rax, rax
-    jz         .error          
+    jz         .exit          
     mov        rbx, rax  ; overwrite rbx here!!!
     
     invoke     CreateCompatibleDC, rbx
@@ -72,7 +69,7 @@ frame
     test       rax, rax
     jz         .delete_dc
 
-    invoke     BitBlt, r12, 0, 0, r14d, r15d, rbx, dword[rect.left], dword[rect.top], SRCCOPY ;hdc x y width height hdc2 x2 y2
+    invoke     BitBlt, r12, 0,0, r14d, r15d, rbx, dword[rect.left], dword[rect.top], SRCCOPY ;hdc x y width height hdc2 x2 y2
     test       rax, rax
     jz         .delete_dc
 
@@ -87,7 +84,7 @@ frame
     imul       rax, 2
     add        r15, rax
 
-    invoke     GetDateFormatW, LOCAL_SYSTEM_DEFAULT, 0, addr st, lpformat_data, r15, 255
+    invoke     GetDateFormatW, LOCAL_SYSTEM_DEFAULT, 0, addr st, lpformat_data, r15, 255 ; 255 - rax!!!
     imul       rax, 2
     add        r15, rax
     sub        r15, 2
@@ -111,25 +108,21 @@ frame
 .exit:
 endf
     ret
-
-.error:
-    invoke     GetLastError 
-    jmp        .exit
 endp
-
 
 proc copy_to_clipboard uses rbx rsi 
 
     movq       rbx, xmm11 ; bitmap
 
 frame
-    invoke     OpenClipboard, 0
+    mov        rcx, 0
+    call       [OpenClipboard]
     test       rax, rax
     je         @f
     
-    invoke     EmptyClipboard    
+    call       [EmptyClipboard]    
     invoke     SetClipboardData, CF_BITMAP, rbx
-    invoke     CloseClipboard
+    call       [CloseClipboard]
 
 @@:
     invoke     DeleteObject, rbx
@@ -137,27 +130,26 @@ endf
     ret
 endp    
 
-
-proc double_buff uses rbx rsi rdi r12 r13 r14 r15
+proc double_buff uses rbx rsi
 
 frame 
-    invoke     GetDC, rsi ; rcx == rsi       partly :) 
-    mov        rdi, rax
+    invoke     GetDC, rsi ; rcx == rsi
+    mov        rbx, rax
 
     invoke     GetSystemMetrics, SM_CXSCREEN 
     mov        dword[screen_width], eax
     invoke     GetSystemMetrics, SM_CYSCREEN
     mov        dword[screen_height], eax
 
-    invoke     CreateCompatibleDC, rdi
+    invoke     CreateCompatibleDC, rbx
     mov        qword[hBackDC], rax
 
-    invoke     CreateCompatibleBitmap, rdi, dword[screen_width], dword[screen_height]
+    invoke     CreateCompatibleBitmap, rbx, dword[screen_width], dword[screen_height]
     mov        qword[hBackBmp], rax
     invoke     SelectObject, qword[hBackDC], rax
 
     invoke     SetLayeredWindowAttributes, rsi, 0x00FFFFFF, 192, LWA_COLORKEY or LWA_ALPHA
-    invoke     ReleaseDC, rsi, rdi 
+    invoke     ReleaseDC, rsi, rbx 
 
     invoke     CreatePen, PS_SOLID, 2, 0x00FFFFF0
     mov        qword[hWhitePen], rax

