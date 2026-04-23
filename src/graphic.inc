@@ -7,9 +7,6 @@ locals
     lpDataStr     db 255 dup ?
 endl
 
-    mov        r14d, ecx ; width
-    mov        r15d, edx ; height
-
 frame
     invoke     GdiplusStartup, addr token, addr GDI, 0
     test       rax, rax
@@ -90,8 +87,11 @@ frame
     sub        r15, 2
 
     invoke     GetTimeFormatW, LOCAL_SYSTEM_DEFAULT, 0, addr st, lpformat_time, r15, 255   
-    ; imul       rax, 2
-    ; add        r15, rax ; for feature!
+    imul       rax, 2
+    add        r15, rax 
+
+    mov        rcx,qword[encoder+11]
+    mov        qword[r15-9], rcx
 
     invoke     GdipSaveImageToFile, qword[gdip_bitmap], addr lpDataStr, addr encoder_clsid, 0
     invoke     GdipDisposeImage, qword[gdip_bitmap]
@@ -133,7 +133,7 @@ endp
 proc double_buff uses rbx rsi
 
 frame 
-    invoke     GetDC, rsi ; rcx == rsi
+    invoke     GetDC, rcx 
     mov        rbx, rax
 
     invoke     GetSystemMetrics, SM_CXSCREEN 

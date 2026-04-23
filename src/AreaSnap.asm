@@ -63,7 +63,7 @@ proc AreaSnap uses rbx rsi rdi r12 r13 r14 r15
     cmp        rdx, WM_LBUTTONUP
     je         .lbuttonup
     cmp        rdx, WM_KILLFOCUS
-    je         .wmdestroy        
+    ;je         .wmdestroy        
     cmp        rdx, WM_DESTROY
     je         .wmdestroy
     call       qword[DefWindowProc]
@@ -72,7 +72,36 @@ proc AreaSnap uses rbx rsi rdi r12 r13 r14 r15
 .wmkeydown:
     cmp        r8d, VK_ESCAPE 
     je         .wmdestroy
-    
+    cmp        r8d, 0x31  
+    je         .changext_to_png
+    cmp        r8d, 0x32  
+    je         .changext_to_gif
+    cmp        r8d, 0x33  
+    je         .changext_to_jpeg
+    cmp        r8d, 0x34  
+    je         .changext_to_bmp
+    cmp        r8d, 0x35
+    je         .changext_to_tiff
+
+    xor        rax,rax
+    jmp        .finish
+
+.changext_to_png:
+    mov        rbx, 0x000067006E007000
+    jmp        @f
+.changext_to_gif:
+    mov        rbx, 0x0000660069006700
+    jmp        @f
+.changext_to_jpeg:
+    mov        rbx, 0x00006700650070006A00
+    jmp        @f
+.changext_to_bmp:
+    mov        rbx, 0x000070006D006200 
+    jmp        @f
+.changext_to_tiff:
+    mov        rbx, 0x00006600660069007400
+@@:
+    mov        qword[encoder+11], rbx
     xor        rax,rax
     jmp        .finish
 
@@ -90,7 +119,7 @@ proc AreaSnap uses rbx rsi rdi r12 r13 r14 r15
     shr        r9, 16 
     mov        word[rect.bottom], r9w
 
-    invoke     InvalidateRect, rcx, 0, 0 ; send WM_PAINT! hwnd, struct 'rect', true\false
+    invoke     InvalidateRect, rcx, 0, 0 ; send WM_PAINT! 
 
     xor        rax,rax   
     jmp        .finish
@@ -136,24 +165,24 @@ frame
     invoke     ReleaseCapture
 
     mov        eax, dword[rect.left]
-    mov        ecx, dword[rect.right]
+    mov        r14d, dword[rect.right]
     mov        ebx, dword[rect.top]
-    mov        edx, dword[rect.bottom]
+    mov        r15d, dword[rect.bottom]
 
-    cmp        eax, ecx
+    cmp        eax, r14d
     jle        @f 
-    xchg       eax, ecx 
+    xchg       eax, r14d 
 
 @@:
     mov        dword[rect.left], eax
-    cmp        ebx, edx
+    cmp        ebx, r15d
     jle        @f
-    xchg       ebx, edx 
+    xchg       ebx, r15d 
 
 @@:
     mov        dword[rect.top], ebx
-    sub        ecx, eax
-    sub        edx, ebx
+    sub        r14d, eax
+    sub        r15d, ebx
 
     call       screenshot
     call       copy_to_clipboard
@@ -176,6 +205,7 @@ proc check_update
 locals 
     gethash     rb 65
     getKey      rb MAX_PATH+1
+    get_ascii_for_hex rb 64
 endl
 
 frame
@@ -184,7 +214,7 @@ frame
     je         @f
     mov        rbx, rax ; save heap
 
-    lea        rsi,[url_api] ; fastcall   open_internet, rbx, url_api
+    lea        rsi,[url_api] 
     call       open_internet
     test       rax,rax
     je         @f
@@ -193,12 +223,14 @@ frame
     test       rax, rax
     je         @f
 
-    fastcall   get_self_filehash, addr gethash
+    lea        r13, qword[gethash]
+    lea        r12, qword[get_ascii_for_hex]
+    call       get_self_filehash
 
-    lea        rsi,[gethash]
+    lea        rsi,[get_ascii_for_hex]
     lea        rdi,[getKey]
     add        rdi,7
-    mov        rcx,4
+    mov        rcx,8
     repe       cmpsq  
     je         @f
 
@@ -215,7 +247,7 @@ frame
     test       rax, rax
     je         @f
 
-    lea        rsi,[getKey] ; fastcall   open_internet, rbx, addr getKey
+    lea        rsi,[getKey] 
     call       open_internet
     test       rax,rax
     je         @f
@@ -268,7 +300,7 @@ encoder du 'image/png',0
 
 EnvVariable du 'USERPROFILE',0
 lpformat_data du '\Pictures\yyyy-MM-dd',0
-lpformat_time du 'HH-mm-ss.png',0
+lpformat_time du ' HH-mm-ss.png',0
 
 data import
   library kernel32, 'KERNEL32.DLL',\
@@ -314,12 +346,12 @@ section '.rsrc' resource readable
   directory RT_VERSION, versions
 
   resource versions,\
-       1, LANG_NEUTRAL, version
+            1, LANG_NEUTRAL, version
 
   versioninfo version, VOS__WINDOWS32, VFT_APP, VFT2_UNKNOWN, LANG_ENGLISH+SUBLANG_DEFAULT, 0,\
-      'FileDescription', 'Screenshot capture',\
-      'LegalCopyright', <'2026 @ihatecomputerprograms.'>,\
-      'ProductVersion', '0.0.2',\
-      'OriginalFilename', 'AreaSnap.exe'
-      
+            'FileDescription', 'Screenshot capture',\
+            'LegalCopyright', <'2026 @ihatecomputerprograms.'>,\
+            'ProductVersion', '0.0.2',\
+            'OriginalFilename', 'AreaSnap.exe'
+
 section '.reloc' data readable discardable fixups

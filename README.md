@@ -9,7 +9,7 @@ Control
 * Press **MOUSE1** to capture an area for the snap
 * ~~Press **TAB** to switch between record/capture~~ 	
 * ~~Move **MOUSE3** when capturing to extend an area for the snap~~
-* ~~Press **'1-4'** to change the image file extension to .png/.jpeg/.gif/.bmp respectively~~
+* Press **'1-5'** to change the image file extension to .png/.gif/.jpeg/.bmp/.tiff respectively
 * Press **CTRL+V** to paste a photo 
 * Press **ESC** to close the program
 

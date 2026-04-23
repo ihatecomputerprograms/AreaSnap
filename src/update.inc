@@ -89,22 +89,15 @@ proc SSE_json_parser uses rbx rsi rdi r12 r13 r14 r15, input_key, input_lpbuffer
     jmp        @b
 endp
 
-proc get_self_filehash uses rbx rsi rdi r12 r13 r14 r15
+proc get_self_filehash uses rbx rsi rdi r12 r13 r14, phAlgorithm, hHash, bytesRead, bytesRead2
 
 locals 
-    phAlgorithm         dq ?
-    hHash               dq ?
-    bytesRead           dq ?
-    get_ascii_for_hex   rb 68
-    bytesRead2          dd ?
     lpbuffer            rb MAX_PATH+1
 endl
 
 frame 
-    mov        r15, rcx ; gethash
-
     invoke     GetModuleFileName, NULL, addr lpbuffer, MAX_PATH+1
-    invoke     CreateFile, addr lpbuffer, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
+    invoke     CreateFile, addr lpbuffer, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
     cmp        rax, INVALID_HANDLE_VALUE
     je         @f
     mov        rbx, rax
@@ -112,49 +105,34 @@ frame
     invoke     GetFileSize, rbx, NULL
     cmp        rax, INVALID_FILE_SIZE
     je         @f
-    mov        rdi, rax
+    mov        rsi, rax
 
-    invoke     GlobalAlloc, GPTR, rdi
+    invoke     GlobalAlloc, GPTR, rsi
     test       rax, rax 
     je         @f
-    mov        r13, rax
+    mov        rdi, rax
     
-    invoke     ReadFile, rbx, r13, rdi, addr bytesRead, NULL 
+    invoke     ReadFile, rbx, rdi, rsi, addr bytesRead, NULL 
     test       rax, rax
     je         @f
 
-    cmp        rdi, qword[bytesRead]
+    cmp        rsi, qword[bytesRead]
     jne        @f
 
     invoke     BCryptOpenAlgorithmProvider, addr phAlgorithm, BCRYPT_SHA256_ALGORITHM, NULL, 0
     invoke     BCryptCreateHash, qword[phAlgorithm], addr hHash, 0,0, NULL, 0,0
 
-    invoke     BCryptHashData, qword[hHash], r13, rdi, 0
+    invoke     BCryptHashData, qword[hHash], rdi, rsi, 0
 
-    invoke     BCryptFinishHash, qword[hHash], r15, 32, 0   
+    invoke     BCryptFinishHash, qword[hHash], r13, 32, 0   
     invoke     BCryptDestroyHash, qword[hHash]
     invoke     BCryptCloseAlgorithmProvider, qword[phAlgorithm], 0
 
-    invoke     CryptBinaryToString, r15, 32, CRYPT_STRING_HEXRAW, NULL, addr bytesRead2
-    invoke     CryptBinaryToString, r15, 32, CRYPT_STRING_HEXRAW, addr get_ascii_for_hex, addr bytesRead2
-
-    lea        rsi, qword[get_ascii_for_hex]
-    xor        rcx, rcx
-
-.buf_to_buf:
-    lodsb
-    mov        byte[r15+rcx], al
-    cmp        rcx, 64
-    jge        .next
-
-    inc        rcx
-    jmp        .buf_to_buf
-
-.next:
-    mov        byte[r15+rcx], 0 ;!
+    invoke     CryptBinaryToString, r13, 32, CRYPT_STRING_HEXRAW, NULL, addr bytesRead2
+    invoke     CryptBinaryToString, r13, 32, CRYPT_STRING_HEXRAW, r12, addr bytesRead2
 
 @@:
-    invoke     GlobalFree, r13 
+    invoke     GlobalFree, rdi 
     invoke     CloseHandle, rbx
 endf
     ret
