@@ -6,270 +6,235 @@ entry main
 section '.text' code readable executable
 include 'update.inc' 
 include 'graphic.inc'
+include 'interface.inc'
 
 proc main, hThread
 
 locals 
-    msg          MSG
+    msg_hotkey MSG
+    msg MSG
 endl
 
 frame  
-    invoke     CreateThread, NULL, 0, addr check_update, 0,0, NULL
-    mov        qword[hThread], rax
+    invoke  CreateThread, NULL, 0, addr check_update, 0,0, NULL
+    mov [hThread], rax
     
-    invoke     GetModuleHandle, 0
-    mov        qword[wc.hInstance], rax
+    call  autorun
+    
+    invoke  RegisterHotKey, NULL, NULL, MOD_SHIFT or MOD_ALT, 0x51
 
-    invoke     LoadCursor, 0, IDC_CROSS
-    mov        qword[wc.hCursor], rax
+.wait_hotkey:
+    invoke  GetMessage, addr msg_hotkey, 0,0,0
+    cmp [msg_hotkey.message], WM_HOTKEY
+    je .create_window
 
-    invoke     RegisterClassEx, addr wc
-    test       rax, rax
-    je         .escape
+    invoke  TranslateMessage, addr msg_hotkey
+    invoke  DispatchMessage, addr msg_hotkey
+    jmp .wait_hotkey
 
-    invoke     CreateWindowEx, WS_EX_LAYERED or WS_EX_TOPMOST or WS_EX_TOOLWINDOW, addr szClass, 0, WS_POPUP or WS_VISIBLE or WS_MAXIMIZE, 0,0,0,0,0,0, addr wc.hInstance, 0
-    test       rax, rax
-    je         .escape
+.create_window:
+    invoke  GetModuleHandle, 0
+    mov qword[wc.hInstance], rax
+
+    invoke  LoadCursor, 0, IDC_CROSS
+    mov qword[wc.hCursor], rax
+
+    invoke  RegisterClassEx, addr wc
+    test rax,rax
+    je .error
+
+    invoke  CreateWindowEx, WS_EX_LAYERED or WS_EX_TOPMOST or WS_EX_TOOLWINDOW, addr szClass, 0, WS_POPUP or WS_VISIBLE or WS_MAXIMIZE, 0,0,0,0,0,0, addr wc.hInstance, 0
+    mov [hwnd],rax
+    test rax,rax
+    je .error
 
 @@:
-    invoke     GetMessage, addr msg, 0,0,0
-    test       rax, rax
-    je         .escape
+    invoke  GetMessage, addr msg, 0,0,0
+    test rax,rax
+    je .destroy_window
 
-    invoke     TranslateMessage, addr msg
-    invoke     DispatchMessage, addr msg
-    jmp        @b  
+    invoke  TranslateMessage, addr msg
+    invoke  DispatchMessage, addr msg
+    jmp @b  
 
-.escape:
-    invoke     WaitForSingleObject, qword[hThread], INFINITE
-    invoke     CloseHandle, qword[hThread]
+.destroy_window:
+    invoke  DestroyWindow, [hwnd]
+    invoke  UnregisterClass, szClass, addr wc.hInstance
+    jmp .wait_hotkey
 
-    invoke     ExitProcess, 0   
+.error:
+    invoke  WaitForSingleObject, [hThread], INFINITE
+    invoke  CloseHandle, [hThread]
+    invoke  ExitProcess, -1   
 endf  
 
 endp
 
 proc AreaSnap uses rbx rsi rdi r12 r13 r14 r15
-    cmp        rdx, WM_CREATE
-    je         .wmcreate
-    cmp        rdx, WM_KEYDOWN
-    je         .wmkeydown
-    cmp        rdx, WM_PAINT
-    je         .wmpaint
-    cmp        rdx, WM_LBUTTONDOWN
-    je         .lbuttondown
-    cmp        rdx, WM_MOUSEMOVE
-    je         .mousemove
-    cmp        rdx, WM_LBUTTONUP
-    je         .lbuttonup
-    cmp        rdx, WM_KILLFOCUS
-    ;je         .wmdestroy        
-    cmp        rdx, WM_DESTROY
-    je         .wmdestroy
-    call       qword[DefWindowProc]
-    jmp        .finish
+    cmp rdx, WM_CREATE
+    je .wmcreate
+    cmp rdx, WM_KEYDOWN
+    je .wmkeydown
+    cmp rdx, WM_PAINT
+    je .wmpaint
+    cmp rdx, WM_LBUTTONDOWN
+    je .lbuttondown
+    cmp rdx, WM_MOUSEMOVE
+    je .mousemove
+    cmp rdx, WM_LBUTTONUP
+    je .lbuttonup
+    cmp rdx, WM_KILLFOCUS
+    je .wmdestroy        
+    cmp rdx, WM_DESTROY
+    je .wmdestroy
+    call  [DefWindowProc]
+    jmp .finish
 
 .wmkeydown:
-    cmp        r8d, VK_ESCAPE 
-    je         .wmdestroy
-    cmp        r8d, 0x31  
-    je         .changext_to_png
-    cmp        r8d, 0x32  
-    je         .changext_to_gif
-    cmp        r8d, 0x33  
-    je         .changext_to_jpeg
-    cmp        r8d, 0x34  
-    je         .changext_to_bmp
-    cmp        r8d, 0x35
-    je         .changext_to_tiff
+    cmp r8d, VK_ESCAPE 
+    je .wmdestroy
+    cmp r8d, 0x31  
+    je .changext_to_png
+    cmp r8d, 0x32  
+    je .changext_to_gif
+    cmp r8d, 0x33  
+    je .changext_to_jpeg
+    cmp r8d, 0x34  
+    je .changext_to_bmp
+    cmp r8d, 0x35
+    je .changext_to_tiff
 
-    xor        rax,rax
-    jmp        .finish
+    xor rax,rax
+    jmp .finish
 
 .changext_to_png:
-    mov        rbx, 0x000067006E007000
-    jmp        @f
+    mov rbx, 0x000067006E007000
+    jmp @f
 .changext_to_gif:
-    mov        rbx, 0x0000660069006700
-    jmp        @f
+    mov rbx, 0x0000660069006700
+    jmp @f
 .changext_to_jpeg:
-    mov        rbx, 0x00006700650070006A00
-    jmp        @f
+    mov rbx, 0x00006700650070006A00
+    jmp @f
 .changext_to_bmp:
-    mov        rbx, 0x000070006D006200 
-    jmp        @f
+    mov rbx, 0x000070006D006200 
+    jmp @f
 .changext_to_tiff:
-    mov        rbx, 0x00006600660069007400
+    mov rbx, 0x00006600660069007400
 @@:
-    mov        qword[encoder+11], rbx
-    xor        rax,rax
-    jmp        .finish
+    mov qword[encoder+11],rbx
+    xor rax,rax
+    jmp .finish
 
 .wmcreate: 
-    call       double_buff
+    call  double_buff
 
-    xor        rax,rax
-    jmp        .finish
+    xor rax,rax
+    jmp .finish
 
 .mousemove:
-    cmp        byte[flag], 1
-    jne        .finish
+    cmp byte[flag], 1
+    jne .finish
 
-    mov        word[rect.right], r9w
-    shr        r9, 16 
-    mov        word[rect.bottom], r9w
+    mov word[rect.right],r9w
+    shr r9, 16 
+    mov word[rect.bottom],r9w
 
-    invoke     InvalidateRect, rcx, 0, 0 ; send WM_PAINT! 
+    invoke  InvalidateRect, rcx, 0,0 ; send WM_PAINT! 
 
-    xor        rax,rax   
-    jmp        .finish
+    xor rax,rax   
+    jmp .finish
 
 .wmpaint:    
 
 locals
-    ps         PAINTSTRUCT
+    ps PAINTSTRUCT
 endl
 
-    ; lea rbx, qword[rect] ???
-
 frame    
-    invoke     PatBlt, qword[hBackDC], 0,0, dword[screen_width], dword[screen_height], BLACKNESS
+    invoke  PatBlt, qword[hBackDC], 0,0, qword[screen_width], qword[screen_height], BLACKNESS
 
-    inc        dword[rect.right]
-    inc        dword[rect.bottom]
-    invoke     Rectangle, qword[hBackDC], dword[rect.left], dword[rect.top], dword[rect.right], dword[rect.bottom]
+    inc dword[rect.right]
+    inc dword[rect.bottom]
+    invoke  Rectangle, qword[hBackDC], dword[rect.left], dword[rect.top], dword[rect.right], dword[rect.bottom]
 
-    invoke     BeginPaint, rsi, addr ps 
-    invoke     BitBlt, [ps.hdc], 0,0, dword[screen_width], dword[screen_height], qword[hBackDC], 0, 0, SRCCOPY 
-    invoke     EndPaint, rsi, addr ps
+    invoke  BeginPaint, rsi, addr ps 
+    invoke  BitBlt, [ps.hdc], 0,0, qword[screen_width], qword[screen_height], qword[hBackDC], 0,0, SRCCOPY 
+    invoke  EndPaint, rsi, addr ps
 endf
 
-    xor        rax,rax  
-    jmp        .finish
+    xor rax,rax  
+    jmp .finish
 
 .lbuttondown: ; r9W contain x in LOWORD and y in HIWORD
-    mov        byte[flag], 1 
+    mov byte[flag],1 
 
-    mov        word[rect.left], r9w
-    shr        r9, 16 
-    mov        word[rect.top], r9w 
+    mov word[rect.left],r9w
+    shr r9,16 
+    mov word[rect.top],r9w 
 
-    invoke     SetCapture, rcx
-    xor        rax,rax      
-    jmp        .finish   
+    invoke  SetCapture, rcx
+    xor rax,rax      
+    jmp .finish   
 
 .lbuttonup:
 
 frame    
-    invoke     SetLayeredWindowAttributes, rcx, 0x00FFFFFF, 0, LWA_COLORKEY or LWA_ALPHA
-    invoke     ReleaseCapture
+    invoke  SetLayeredWindowAttributes, rcx, 0x00FFFFFF, 0, LWA_COLORKEY or LWA_ALPHA
+    invoke  ReleaseCapture
 
-    mov        eax, dword[rect.left]
-    mov        r14d, dword[rect.right]
-    mov        ebx, dword[rect.top]
-    mov        r15d, dword[rect.bottom]
+    mov eax,dword[rect.left]
+    mov r14d,dword[rect.right]
+    mov ebx,dword[rect.top]
+    mov r15d,dword[rect.bottom]
 
-    cmp        eax, r14d
-    jle        @f 
-    xchg       eax, r14d 
-
-@@:
-    mov        dword[rect.left], eax
-    cmp        ebx, r15d
-    jle        @f
-    xchg       ebx, r15d 
+    cmp eax,r14d
+    jle @f 
+    xchg eax,r14d 
 
 @@:
-    mov        dword[rect.top], ebx
-    sub        r14d, eax
-    sub        r15d, ebx
+    mov dword[rect.left],eax
+    cmp ebx,r15d
+    jle @f
+    xchg ebx,r15d 
 
-    call       screenshot
-    call       copy_to_clipboard
-    
+@@:
+    mov dword[rect.top],ebx
+    sub r14d,eax
+    sub r15d,ebx
+
+    call  screenshot
+    call  copy_to_clipboard
+
 .wmdestroy:
-    invoke     DeleteObject, qword[hWhitePen]
-    invoke     DeleteObject, qword[hBackBmp]
-    invoke     DeleteDC, qword[hBackDC]
+    mov byte[flag], 0 
 
-    invoke     PostQuitMessage, 0 
-    xor        rax, rax
+    mov dword[rect.left],0
+    mov dword[rect.right],0
+    mov dword[rect.top],0
+    mov dword[rect.bottom],0
+
+    invoke  DeleteObject,[hWhitePen]
+    invoke  DeleteObject,[hBackBmp]
+    invoke  DeleteDC,[hBackDC]
+
+    invoke  PostQuitMessage, 0 
+    xor rax,rax
 endf
 
 .finish:
     ret
 endp
 
-proc check_update 
-
-locals 
-    gethash     rb 65
-    getKey      rb MAX_PATH+1
-    get_ascii_for_hex rb 64
-endl
-
-frame
-    invoke     GlobalAlloc, GPTR, 15000
-    test       rax, rax
-    je         @f
-    mov        rbx, rax ; save heap
-
-    lea        rsi,[url_api] 
-    call       open_internet
-    test       rax,rax
-    je         @f
-
-    fastcall   SSE_json_parser, key, rbx, addr getKey, key.sizeof, 0
-    test       rax, rax
-    je         @f
-
-    lea        r13, qword[gethash]
-    lea        r12, qword[get_ascii_for_hex]
-    call       get_self_filehash
-
-    lea        rsi,[get_ascii_for_hex]
-    lea        rdi,[getKey]
-    add        rdi,7
-    mov        rcx,8
-    repe       cmpsq  
-    je         @f
-
-    fastcall   SSE_json_parser, key3, rbx, addr getKey, key3.sizeof, 1    
-    test       rax, rax
-    je         @f
-
-    invoke     CreateFile, addr getKey, GENERIC_READ or GENERIC_WRITE, 0,0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
-    cmp        rax, INVALID_HANDLE_VALUE
-    je         @f
-    mov        r14, rax 
-
-    fastcall   SSE_json_parser, key2, rbx, addr getKey, key2.sizeof, 0     
-    test       rax, rax
-    je         @f
-
-    lea        rsi,[getKey] 
-    call       open_internet
-    test       rax,rax
-    je         @f
-
-    invoke     WriteFile, r14, rbx, rax, 0,0 
-    invoke     CloseHandle, r14
-
-    call       self_delete_prog 
-@@:
-    invoke     GlobalFree, rbx 
-endf
-    ret  
-endp
-
 section '.bss' readable writeable
-screen_width    dd ?
-screen_height   dd ?
+screen_width dq ?
+screen_height dq ?
 
-hBackBmp        dq ?
-hBackDC         dq ?  
-hWhitePen       dq ?
-flag            db ?
+hwnd dq ?
+hBackBmp dq ?
+hBackDC dq ?  
+hWhitePen dq ?
+flag db ?
 
 section '.data' readable writeable
 wc WNDCLASSEX sizeof.WNDCLASSEX, 0, AreaSnap, 0,0,0,0,0,0,0, szClass, 0 
@@ -298,10 +263,6 @@ key3 db 'name',0
 encoder du 'image/png',0
 .sizeof = $ - encoder  
 
-EnvVariable du 'USERPROFILE',0
-lpformat_data du '\Pictures\yyyy-MM-dd',0
-lpformat_time du ' HH-mm-ss.png',0
-
 data import
   library kernel32, 'KERNEL32.DLL',\
           user32, 'USER32.DLL',\
@@ -309,49 +270,51 @@ data import
           gdiplus, 'GDIPLUS.DLL',\
           bcrypt, 'Bcrypt.dll',\
           crypt32, 'crypt32.dll',\
-          wininet, 'Wininet.dll'
+          wininet, 'Wininet.dll',\
+          advapi32, 'Advapi32.dll'
 
   include 'API\kernel32.inc' ; add SetFileInformationByHandle 
   include 'API\user32.inc' 
   include 'API\gdi32.inc'
+  include 'API\advapi32.inc'
 
-  import  gdiplus,\
-          GdiplusStartup,'GdiplusStartup',\
-          GdiplusShutdown,'GdiplusShutdown',\
-          GdipGetImageEncodersSize,'GdipGetImageEncodersSize',\
-          GdipGetImageEncoders,'GdipGetImageEncoders',\
-          GdipSaveImageToFile,'GdipSaveImageToFile',\
-          GdipDisposeImage,'GdipDisposeImage',\
-          GdipCreateBitmapFromHBITMAP,'GdipCreateBitmapFromHBITMAP'   
+  import gdiplus,\
+         GdiplusStartup,'GdiplusStartup',\
+         GdiplusShutdown,'GdiplusShutdown',\
+         GdipGetImageEncodersSize,'GdipGetImageEncodersSize',\
+         GdipGetImageEncoders,'GdipGetImageEncoders',\
+         GdipSaveImageToFile,'GdipSaveImageToFile',\
+         GdipDisposeImage,'GdipDisposeImage',\
+         GdipCreateBitmapFromHBITMAP,'GdipCreateBitmapFromHBITMAP'   
 
   import bcrypt,\
-          BCryptOpenAlgorithmProvider, 'BCryptOpenAlgorithmProvider',\
-          BCryptCreateHash, 'BCryptCreateHash',\
-          BCryptHashData, 'BCryptHashData',\
-          BCryptFinishHash, 'BCryptFinishHash',\  
-          BCryptDestroyHash, 'BCryptDestroyHash',\
-          BCryptCloseAlgorithmProvider, 'BCryptCloseAlgorithmProvider' 
+         BCryptOpenAlgorithmProvider, 'BCryptOpenAlgorithmProvider',\
+         BCryptCreateHash, 'BCryptCreateHash',\
+         BCryptHashData, 'BCryptHashData',\
+         BCryptFinishHash, 'BCryptFinishHash',\  
+         BCryptDestroyHash, 'BCryptDestroyHash',\
+         BCryptCloseAlgorithmProvider, 'BCryptCloseAlgorithmProvider' 
 
   import crypt32,\
-          CryptBinaryToString, 'CryptBinaryToStringA'
+         CryptBinaryToString, 'CryptBinaryToStringA'
 
   import wininet,\
-          InternetOpen, 'InternetOpenA',\
-          InternetOpenUrl, 'InternetOpenUrlA',\
-          InternetReadFile, 'InternetReadFile',\
-          InternetCloseHandle, 'InternetCloseHandle'      
+         InternetOpen, 'InternetOpenA',\
+         InternetOpenUrl, 'InternetOpenUrlA',\
+         InternetReadFile, 'InternetReadFile',\
+         InternetCloseHandle, 'InternetCloseHandle'      
 end data
 
 section '.rsrc' resource readable
   directory RT_VERSION, versions
 
   resource versions,\
-            1, LANG_NEUTRAL, version
+            1, LANG_NEUTRAL+SUBLANG_DEFAULT, version
 
   versioninfo version, VOS__WINDOWS32, VFT_APP, VFT2_UNKNOWN, LANG_ENGLISH+SUBLANG_DEFAULT, 0,\
-            'FileDescription', 'Screenshot capture',\
+            'FileDescription', 'AreaSnap',\
             'LegalCopyright', <'2026 @ihatecomputerprograms.'>,\
-            'ProductVersion', '0.0.2',\
-            'OriginalFilename', 'AreaSnap.exe'
+            'ProductVersion', '1.0.0',\
+            'OriginalFilename', 'AREASNAP.EXE'
 
 section '.reloc' data readable discardable fixups

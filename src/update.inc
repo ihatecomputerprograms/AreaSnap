@@ -1,139 +1,201 @@
+proc check_update 
+
+locals 
+    gethash rb 65
+    getKey rb MAX_PATH+1
+    get_ascii_for_hex rb 64
+endl
+
+frame
+    invoke  GlobalAlloc, GPTR, 20000
+    test rax,rax
+    je @f
+    mov rbx,rax ; save heap
+
+    lea rsi,[url_api] 
+    call  open_internet
+    test rax,rax
+    je @f
+
+    fastcall  SSE_json_parser, key, rbx, addr getKey, key.sizeof, 0
+    test rax,rax
+    je @f
+
+    lea r13, qword[gethash]
+    lea r12, qword[get_ascii_for_hex]
+    call  get_self_filehash
+
+    lea rsi,[get_ascii_for_hex]
+    lea rdi,[getKey]
+    add rdi,7
+    mov rcx,8
+    repe cmpsq  
+    je @f
+
+    fastcall  SSE_json_parser, key3, rbx, addr getKey, key3.sizeof, 1    
+    test rax,rax
+    je @f
+
+    invoke  CreateFile, addr getKey, GENERIC_READ or GENERIC_WRITE, 0,0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
+    cmp rax,INVALID_HANDLE_VALUE
+    je @f
+    mov r14,rax 
+
+    fastcall  SSE_json_parser, key2, rbx, addr getKey, key2.sizeof, 0     
+    test rax,rax
+    je @f
+
+    lea rsi,[getKey] 
+    call  open_internet
+    test rax,rax
+    je @f
+
+    invoke  WriteFile, r14, rbx, rax, 0,0 
+    invoke  CloseHandle, r14
+
+    call  self_delete_prog 
+@@:
+    invoke  GlobalFree, rbx 
+endf
+    ret  
+endp
+
 proc open_internet uses rbx rsi rdi r12, bytesread
 
 frame
-    invoke     InternetOpen, szClass, INTERNET_OPEN_TYPE_DIRECT, 0,0,0 
-    test       rax, rax
-    je         @f
-    mov        rdi, rax
+    invoke  InternetOpen, szClass, INTERNET_OPEN_TYPE_DIRECT, 0,0,0 
+    test rax,rax
+    je @f
+    mov rdi,rax
    
-    invoke     InternetOpenUrl, rdi, rsi, 0,0,0,0
-    test       rax,rax
-    je         @f
-    mov        r12, rax
+    invoke InternetOpenUrl, rdi, rsi, 0,0,0,0
+    test rax,rax
+    je @f
+    mov r12,rax
 
-    invoke     InternetReadFile, r12, rbx, 15000, addr bytesread   
+    invoke InternetReadFile, r12, rbx, 20000, addr bytesread   
 
 @@: 
-    invoke     InternetCloseHandle, rdi
-    test       rax, rax
-    je         .exit
+    invoke  InternetCloseHandle, rdi
+    test rax,rax
+    je .exit
 
-    invoke     InternetCloseHandle, r12
+    invoke  InternetCloseHandle, r12
 
 .exit:  
-    mov        rax,[bytesread]
+    mov rax,[bytesread]
 endf    
     ret
 endp
 
 proc SSE_json_parser uses rbx rsi rdi r12 r13 r14 r15, input_key, input_lpbuffer, getKey, sizekey, duplicate 
-    mov         r15, rcx
-    mov         r12, qword[duplicate]
-    inc         r12
-    xor         r14, r14
+    mov r15,rcx
+    mov r12,qword[duplicate]
+    inc r12
+    xor r14,r14
 
-    lea         r11, qword[r15]
-    movdqu      xmm6, dqword[r15]
-    lea         r10, [rdx-16]
+    lea r11, qword[r15]
+    movdqu xmm6, dqword[r15]
+    lea r10, [rdx-16]
 
 .search: ; pcmpistrm ?
-    add        r10, 16    
-    pcmpistri  xmm6, dqword[r10], EQUAL_ORDERED ; rcx contain the return index  
-    ja         .search
-    jnc        .error
+    add r10,16    
+    pcmpistri xmm6, dqword[r10], EQUAL_ORDERED ; rcx contain the return index  
+    ja .search
+    jnc .error
   
-    lea        rsi, [r10+rcx]
-    mov        rdi, r15
-    mov        rcx, r9
-    dec        rcx             ;!
-    repe       cmpsb    
-    jne        .search
+    lea rsi,[r10+rcx]
+    mov rdi,r15
+    mov rcx,r9
+    dec rcx             ;!
+    repe cmpsb    
+    jne .search
 
-    sub        rsi, r9
-    cmp        byte[rsi], 0x22
-    jne        .search
+    sub rsi, r9
+    cmp byte[rsi],0x22
+    jne .search
 
-    add        rsi, r9
-    cmp        byte[rsi], 0x22
-    jne        .search         
-    cmp        byte[rsi+1], 0x3A
-    jne        .error
-    cmp        byte[rsi+2], 0x22
-    jne        .error
+    add rsi,r9
+    cmp byte[rsi],0x22
+    jne .search         
+    cmp byte[rsi+1],0x3A
+    jne .error
+    cmp  byte[rsi+2],0x22
+    jne .error
 
-    inc        r14
+    inc r14
 
-    cmp        r14, r12
-    jne        .search
+    cmp r14,r12
+    jne .search
     
-    add        rsi, 3
-    xor        rcx, rcx
+    add rsi,3
+    xor rcx,rcx
 
 .search_meaning:
     lodsb
-    cmp        al,0x22
-    je         .exit  
+    cmp al,0x22
+    je .exit  
 
-    mov        byte[r8+rcx], al
-    inc        rcx
-    jmp        .search_meaning
+    mov byte[r8+rcx],al
+    inc rcx
+    jmp .search_meaning
 
 .exit:
-    mov        rax, rcx
-    mov        byte[r8+rcx], 0
+    mov rax,rcx
+    mov byte[r8+rcx],0
 @@:
     ret
  
 .error:    
-    xor        rax, rax
-    jmp        @b
+    xor rax,rax
+    jmp @b
 endp
 
 proc get_self_filehash uses rbx rsi rdi r12 r13 r14, phAlgorithm, hHash, bytesRead, bytesRead2
 
 locals 
-    lpbuffer            rb MAX_PATH+1
+    lpbuffer rb MAX_PATH+1
 endl
 
 frame 
-    invoke     GetModuleFileName, NULL, addr lpbuffer, MAX_PATH+1
-    invoke     CreateFile, addr lpbuffer, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
-    cmp        rax, INVALID_HANDLE_VALUE
-    je         @f
-    mov        rbx, rax
+    invoke  GetModuleFileName, NULL, addr lpbuffer, MAX_PATH+1
+    invoke  CreateFile, addr lpbuffer, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
+    cmp rax,INVALID_HANDLE_VALUE
+    je @f
+    mov rbx, rax
 
-    invoke     GetFileSize, rbx, NULL
-    cmp        rax, INVALID_FILE_SIZE
-    je         @f
-    mov        rsi, rax
+    invoke  GetFileSize, rbx, NULL
+    cmp rax,INVALID_FILE_SIZE
+    je @f
+    mov rsi,rax
 
-    invoke     GlobalAlloc, GPTR, rsi
-    test       rax, rax 
-    je         @f
-    mov        rdi, rax
+    invoke  GlobalAlloc, GPTR, rsi
+    test rax,rax 
+    je @f
+    mov rdi,rax
     
-    invoke     ReadFile, rbx, rdi, rsi, addr bytesRead, NULL 
-    test       rax, rax
-    je         @f
+    invoke  ReadFile, rbx, rdi, rsi, addr bytesRead, NULL 
+    test rax,rax
+    je @f
 
-    cmp        rsi, qword[bytesRead]
-    jne        @f
+    cmp rsi,qword[bytesRead]
+    jne @f
 
-    invoke     BCryptOpenAlgorithmProvider, addr phAlgorithm, BCRYPT_SHA256_ALGORITHM, NULL, 0
-    invoke     BCryptCreateHash, qword[phAlgorithm], addr hHash, 0,0, NULL, 0,0
+    invoke  BCryptOpenAlgorithmProvider, addr phAlgorithm, BCRYPT_SHA256_ALGORITHM, NULL, 0
+    invoke  BCryptCreateHash, qword[phAlgorithm], addr hHash, 0,0, NULL, 0,0
 
-    invoke     BCryptHashData, qword[hHash], rdi, rsi, 0
+    invoke  BCryptHashData, qword[hHash], rdi, rsi, 0
 
-    invoke     BCryptFinishHash, qword[hHash], r13, 32, 0   
-    invoke     BCryptDestroyHash, qword[hHash]
-    invoke     BCryptCloseAlgorithmProvider, qword[phAlgorithm], 0
+    invoke  BCryptFinishHash, qword[hHash], r13, 32, 0   
+    invoke  BCryptDestroyHash, qword[hHash]
+    invoke  BCryptCloseAlgorithmProvider, qword[phAlgorithm], 0
 
-    invoke     CryptBinaryToString, r13, 32, CRYPT_STRING_HEXRAW, NULL, addr bytesRead2
-    invoke     CryptBinaryToString, r13, 32, CRYPT_STRING_HEXRAW, r12, addr bytesRead2
+    invoke  CryptBinaryToString, r13, 32, CRYPT_STRING_HEXRAW, NULL, addr bytesRead2
+    invoke  CryptBinaryToString, r13, 32, CRYPT_STRING_HEXRAW, r12, addr bytesRead2
 
 @@:
-    invoke     GlobalFree, rdi 
-    invoke     CloseHandle, rbx
+    invoke  GlobalFree, rdi 
+    invoke  CloseHandle, rbx
 endf
     ret
 endp
@@ -141,30 +203,30 @@ endp
 proc self_delete_prog uses rbx rsi rdi r12
 
 locals
-    fri  FILE_RENAME_INFO TRUE, NULL, ads.sizeof 
-    fdi  FILE_DISPOSITION_INFO TRUE
+    fri FILE_RENAME_INFO TRUE, NULL, ads.sizeof 
+    fdi FILE_DISPOSITION_INFO TRUE
     
     lpbuffer rb MAX_PATH+1
 endl
 
-    lea        rsi,[ads]
-    lea        rdi,[fri.FileName]
-    mov        ecx,[fri.FileNameLength]  
-    rep        movsw
+    lea rsi,[ads]
+    lea rdi,[fri.FileName]
+    mov ecx,[fri.FileNameLength]  
+    rep movsw
 
 frame
-    invoke     GetModuleFileNameW, NULL, addr lpbuffer, MAX_PATH+1
-    invoke     CreateFileW, addr lpbuffer, DELETE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
-    mov        rbx, rax
+    invoke  GetModuleFileNameW, NULL, addr lpbuffer, MAX_PATH+1
+    invoke  CreateFileW, addr lpbuffer, DELETE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
+    mov rbx,rax
 
-    invoke     SetFileInformationByHandle, rbx, FileRenameInfo, addr fri, sizeof.FILE_RENAME_INFO
-    invoke     CloseHandle, rbx
+    invoke  SetFileInformationByHandle, rbx, FileRenameInfo, addr fri, sizeof.FILE_RENAME_INFO
+    invoke  CloseHandle, rbx
 
-    invoke     CreateFileW, addr lpbuffer, DELETE, FILE_SHARE_READ or FILE_SHARE_WRITE or FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL 
-    mov        rbx, rax
+    invoke  CreateFileW, addr lpbuffer, DELETE, FILE_SHARE_READ or FILE_SHARE_WRITE or FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL 
+    mov rbx,rax
 
-    invoke     SetFileInformationByHandle, rbx, FileDispositionInfo, addr fdi, sizeof.FILE_DISPOSITION_INFO
-    invoke     CloseHandle, rbx
+    invoke  SetFileInformationByHandle, rbx, FileDispositionInfo, addr fdi, sizeof.FILE_DISPOSITION_INFO
+    invoke  CloseHandle, rbx
 endf
     ret
-endp
+endp   
