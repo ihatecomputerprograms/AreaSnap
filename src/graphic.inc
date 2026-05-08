@@ -153,7 +153,7 @@ frame
 
     invoke  CreatePen, PS_SOLID, 2, 0x00FFFFF0
     mov qword[hWhitePen], rax
-    invoke  SelectObject, qword[hBackDC], rax
+    ;invoke  SelectObject, qword[hBackDC], rax
 endf   
     ret
 endp

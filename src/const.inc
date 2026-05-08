@@ -1,7 +1,10 @@
 INFINITE = -1
+
 DELETE = 0x00010000
+
 FileRenameInfo = 3
 FileDispositionInfo = 4
+
 INVALID_FILE_SIZE = -1
 
 EQUAL_ANY         equ 0000b
@@ -14,6 +17,8 @@ BYTE_MASK         equ 1000000b
 INTERNET_OPEN_TYPE_DIRECT = 1
 
 CRYPT_STRING_HEXRAW = 0x0000000c
+
+LOCAL_SYSTEM_DEFAULT = 0x0800
 
 struct URL_COMPONENTS ; https://learn.microsoft.com/en-us/windows/win32/api/winhttp/ns-winhttp-url_components
 
@@ -40,11 +45,6 @@ struct URL_COMPONENTS ; https://learn.microsoft.com/en-us/windows/win32/api/winh
 
 ends
 
-
-INTERNET_SCHEME_HTTP  = 1
-INTERNET_SCHEME_HTTPS = 2
-
-
 struct GdiplusStartupInput
 
   GdiplusVersion           dd ?
@@ -54,7 +54,6 @@ struct GdiplusStartupInput
   SuppressExternalCodecs   dq ?
 
 ends
-
 
 struct ImageCodecInfo
 
@@ -84,11 +83,8 @@ struct FILE_RENAME_INFO
 
 ends
 
-
 struct FILE_DISPOSITION_INFO ; https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_disposition_info
 
   DeleteFile db ? 
 
 ends
-
-LOCAL_SYSTEM_DEFAULT = 0x0800

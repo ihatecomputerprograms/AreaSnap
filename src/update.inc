@@ -10,57 +10,52 @@ frame
     invoke  GlobalAlloc, GPTR, 20000
     test rax,rax
     je @f
-    mov rbx,rax ; save heap
+    mov rbx,rax 
 
-    lea rsi,[url_api] 
-    call  open_internet
+    lea rsi,[github_api] 
+    call  get_http_content
     test rax,rax
     je @f
 
-    fastcall  SSE_json_parser, key, rbx, addr getKey, key.sizeof, 0
+    fastcall  get_json_value_by_key, key, rbx, addr getKey, key.sizeof, 0
     test rax,rax
     je @f
 
     lea r13, qword[gethash]
     lea r12, qword[get_ascii_for_hex]
-    call  get_self_filehash
+    call  get_self_hash
 
     lea rsi,[get_ascii_for_hex]
-    lea rdi,[getKey]
-    add rdi,7
+    lea rdi,[getKey+7]
     mov rcx,8
     repe cmpsq  
     je @f
 
-    fastcall  SSE_json_parser, key3, rbx, addr getKey, key3.sizeof, 1    
-    test rax,rax
-    je @f
+    call  delete_current_program
 
-    invoke  CreateFile, addr getKey, GENERIC_READ or GENERIC_WRITE, 0,0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
+    invoke  CreateFile, szClass, GENERIC_READ or GENERIC_WRITE, 0,0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
     cmp rax,INVALID_HANDLE_VALUE
     je @f
     mov r14,rax 
 
-    fastcall  SSE_json_parser, key2, rbx, addr getKey, key2.sizeof, 0     
+    fastcall  get_json_value_by_key, key2, rbx, addr getKey, key2.sizeof, 0     
     test rax,rax
     je @f
 
     lea rsi,[getKey] 
-    call  open_internet
+    call  get_http_content
     test rax,rax
     je @f
 
     invoke  WriteFile, r14, rbx, rax, 0,0 
     invoke  CloseHandle, r14
-
-    call  self_delete_prog 
 @@:
     invoke  GlobalFree, rbx 
 endf
     ret  
 endp
 
-proc open_internet uses rbx rsi rdi r12, bytesread
+proc get_http_content uses rbx rsi rdi r12, bytesread
 
 frame
     invoke  InternetOpen, szClass, INTERNET_OPEN_TYPE_DIRECT, 0,0,0 
@@ -88,7 +83,7 @@ endf
     ret
 endp
 
-proc SSE_json_parser uses rbx rsi rdi r12 r13 r14 r15, input_key, input_lpbuffer, getKey, sizekey, duplicate 
+proc get_json_value_by_key uses rbx rsi rdi r12 r13 r14 r15, input_key, input_lpbuffer, getKey, sizekey, duplicate 
     mov r15,rcx
     mov r12,qword[duplicate]
     inc r12
@@ -151,7 +146,7 @@ proc SSE_json_parser uses rbx rsi rdi r12 r13 r14 r15, input_key, input_lpbuffer
     jmp @b
 endp
 
-proc get_self_filehash uses rbx rsi rdi r12 r13 r14, phAlgorithm, hHash, bytesRead, bytesRead2
+proc get_self_hash uses rbx rsi rdi r12 r13 r14, phAlgorithm, hHash, bytesRead, bytesRead2
 
 locals 
     lpbuffer rb MAX_PATH+1
@@ -200,7 +195,7 @@ endf
     ret
 endp
 
-proc self_delete_prog uses rbx rsi rdi r12
+proc delete_current_program uses rbx rsi rdi r12
 
 locals
     fri FILE_RENAME_INFO TRUE, NULL, ads.sizeof 

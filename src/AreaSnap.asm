@@ -19,7 +19,7 @@ frame
     invoke  CreateThread, NULL, 0, addr check_update, 0,0, NULL
     mov [hThread], rax
     
-    call  autorun
+    call  add_to_startup
     
     invoke  RegisterHotKey, NULL, NULL, MOD_SHIFT or MOD_ALT, 0x51
 
@@ -174,6 +174,8 @@ endf
     mov word[rect.top],r9w 
 
     invoke  SetCapture, rcx
+    invoke  SelectObject, qword[hBackDC], qword[hWhitePen]
+
     xor rax,rax      
     jmp .finish   
 
@@ -211,8 +213,8 @@ frame
 
     mov dword[rect.left],0
     mov dword[rect.right],0
-    mov dword[rect.top],0
-    mov dword[rect.bottom],0
+    ;mov dword[rect.top],0
+    ;mov dword[rect.bottom],0
 
     invoke  DeleteObject,[hWhitePen]
     invoke  DeleteObject,[hBackBmp]
@@ -241,10 +243,10 @@ wc WNDCLASSEX sizeof.WNDCLASSEX, 0, AreaSnap, 0,0,0,0,0,0,0, szClass, 0
 rect RECT
 GDI GdiplusStartupInput 1
 
-szClass db 'AreaSnap',0
-.sizeof = $ - szClass
+github_api db 'https://api.github.com/repos/ihatecomputerprograms/AreaSnap/releases',0
 
-url_api db 'https://api.github.com/repos/ihatecomputerprograms/AreaSnap/releases',0
+szClass db 'AreaSnap.exe',0
+.sizeof = $ - szClass
 
 ads du ':wtfbbq',0 
 .sizeof = $ - ads    
@@ -256,9 +258,6 @@ key db 'digest',0
 
 key2 db 'browser_download_url',0
 .sizeof = $ - key2
-
-key3 db 'name',0
-.sizeof = $ - key3
 
 encoder du 'image/png',0
 .sizeof = $ - encoder  
@@ -309,12 +308,14 @@ section '.rsrc' resource readable
   directory RT_VERSION, versions
 
   resource versions,\
-            1, LANG_NEUTRAL+SUBLANG_DEFAULT, version
+            1, LANG_ENGLISH, version
 
-  versioninfo version, VOS__WINDOWS32, VFT_APP, VFT2_UNKNOWN, LANG_ENGLISH+SUBLANG_DEFAULT, 0,\
+  versioninfo version, VOS__WINDOWS32, VFT_APP, VFT2_UNKNOWN, LANG_ENGLISH, 0,\
             'FileDescription', 'AreaSnap',\
-            'LegalCopyright', <'2026 @ihatecomputerprograms.'>,\
-            'ProductVersion', '1.0.0',\
+            'ProductName', 'AreaSnap',\
+            'LegalCopyright', <'@ihatecomputerprograms. 2026'>,\
+            'FileVersion','1.0.1',\
+            'ProductVersion', '1.0.1',\
             'OriginalFilename', 'AREASNAP.EXE'
 
 section '.reloc' data readable discardable fixups
