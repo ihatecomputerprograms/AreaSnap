@@ -47,19 +47,21 @@ frame
 
     invoke  GlobalFree, rbx 
 
-    invoke  GetDC, 0
+    invoke  GetDC, HWND_DESKTOP
     test rax,rax
     jz .exit          
-    mov rbx,rax  ; overwrite rbx here!!!
+    mov rbx,rax  
     
     invoke  CreateCompatibleDC, rbx
+    test rax,rax
+    je .delete_bitmap
     mov r12,rax  
 
     invoke  CreateCompatibleBitmap, rbx, r14d, r15d ;hdc width height
     test rax,rax
     jz .release_dc
     mov r13,rax  
-    movq xmm11,rax 
+    call  copy_to_clipboard
 
     invoke  SelectObject, r12, r13 
     test rax,rax
@@ -71,7 +73,7 @@ frame
 
     invoke  GdipCreateBitmapFromHBITMAP, r13, 0, addr gdip_bitmap 
     test rax,rax
-    jnz .delete_dc
+    jnz .delete_dc 
 
     invoke  GetLocalTime, addr st
 
@@ -80,8 +82,7 @@ frame
     lea r15, [r15+rax*2]
 
     invoke  GetDateFormatW, LOCAL_SYSTEM_DEFAULT, 0, addr st, lpformat_data, r15, 255 ; 255 - rax!!!
-    lea r15, [r15+rax*2]
-    sub r15, 2
+    lea r15, [r15+rax*2-2]
 
     invoke  GetTimeFormatW, LOCAL_SYSTEM_DEFAULT, 0, addr st, lpformat_time, r15, 255   
     lea r15,[r15+rax*2]
@@ -93,10 +94,13 @@ frame
     invoke  GdipDisposeImage, qword[gdip_bitmap]
 
 .delete_dc:
-    invoke  DeleteDC, r12
+    invoke  DeleteDC,r12
+
+.delete_bitmap:
+    invoke  DeleteObject,r13
 
 .release_dc:
-    invoke  ReleaseDC, 0, rbx
+    invoke  ReleaseDC, HWND_DESKTOP, rbx
 
 .shutdown_gdiplus:
     invoke  GdiplusShutdown, qword[token]
@@ -105,47 +109,47 @@ frame
 endf
     ret
 
+.error:
+    invoke  GlobalFree, rbx
+    mov rax,-1
+    jmp .exit
+
     EnvVariable du 'USERPROFILE',0
     lpformat_data du '\Pictures\yyyy-MM-dd',0
     lpformat_time du ' HH-mm-ss.png',0    
 endp
 
-proc copy_to_clipboard uses rbx rsi 
-
-    movq rbx,xmm11 ; bitmap
+proc copy_to_clipboard 
 
 frame
     mov rcx,0
-    call  [OpenClipboard]
-    test rax,rax
-    je @f
-    
+    call  [OpenClipboard]   
     call  [EmptyClipboard]    
-    invoke  SetClipboardData, CF_BITMAP, rbx
+    invoke  SetClipboardData, CF_BITMAP, r13
     call  [CloseClipboard]
-
-@@:
-    invoke  DeleteObject, rbx
 endf
     ret
 endp    
 
 proc double_buff uses rbx rsi
 
+    mov rsi,rcx ; i hate win11 
+
 frame 
     invoke  GetDC, rcx 
     mov rbx,rax
+
+    invoke  CreateCompatibleDC, rbx
+    mov qword[hBackDC], rax
 
     invoke  GetSystemMetrics, SM_CXSCREEN 
     mov qword[screen_width], rax
     invoke  GetSystemMetrics, SM_CYSCREEN
     mov qword[screen_height], rax
     
-    invoke  CreateCompatibleDC, rbx
-    mov qword[hBackDC], rax
-
     invoke  CreateCompatibleBitmap, rbx, qword[screen_width], qword[screen_height]
     mov qword[hBackBmp], rax
+
     invoke  SelectObject, qword[hBackDC], rax
 
     invoke  SetLayeredWindowAttributes, rsi, 0x00FFFFFF, 192, LWA_COLORKEY or LWA_ALPHA
@@ -153,7 +157,6 @@ frame
 
     invoke  CreatePen, PS_SOLID, 2, 0x00FFFFF0
     mov qword[hWhitePen], rax
-    ;invoke  SelectObject, qword[hBackDC], rax
 endf   
     ret
 endp

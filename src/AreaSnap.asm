@@ -14,7 +14,7 @@ locals
     msg_hotkey MSG
     msg MSG
 endl
-
+  
 frame  
     invoke  CreateThread, NULL, 0, addr check_update, 0,0, NULL
     mov [hThread], rax
@@ -71,22 +71,22 @@ endf
 endp
 
 proc AreaSnap uses rbx rsi rdi r12 r13 r14 r15
-    cmp rdx, WM_CREATE
-    je .wmcreate
-    cmp rdx, WM_KEYDOWN
-    je .wmkeydown
+    cmp rdx, WM_MOUSEMOVE
+    je .mousemove
     cmp rdx, WM_PAINT
     je .wmpaint
     cmp rdx, WM_LBUTTONDOWN
     je .lbuttondown
-    cmp rdx, WM_MOUSEMOVE
-    je .mousemove
     cmp rdx, WM_LBUTTONUP
     je .lbuttonup
+    cmp rdx, WM_KEYDOWN
+    je .wmkeydown
     cmp rdx, WM_KILLFOCUS
     je .wmdestroy        
     cmp rdx, WM_DESTROY
     je .wmdestroy
+    cmp rdx, WM_CREATE
+    je .wmcreate    
     call  [DefWindowProc]
     jmp .finish
 
@@ -206,15 +206,12 @@ frame
     sub r15d,ebx
 
     call  screenshot
-    call  copy_to_clipboard
 
 .wmdestroy:
     mov byte[flag], 0 
 
     mov dword[rect.left],0
     mov dword[rect.right],0
-    ;mov dword[rect.top],0
-    ;mov dword[rect.bottom],0
 
     invoke  DeleteObject,[hWhitePen]
     invoke  DeleteObject,[hBackBmp]
@@ -314,8 +311,8 @@ section '.rsrc' resource readable
             'FileDescription', 'AreaSnap',\
             'ProductName', 'AreaSnap',\
             'LegalCopyright', <'@ihatecomputerprograms. 2026'>,\
-            'FileVersion','1.0.1',\
-            'ProductVersion', '1.0.1',\
+            'FileVersion','1.0.2',\
+            'ProductVersion', '1.0.2',\
             'OriginalFilename', 'AREASNAP.EXE'
 
 section '.reloc' data readable discardable fixups
