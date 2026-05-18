@@ -17,12 +17,12 @@ frame
         
     invoke  GlobalAlloc, GPTR, qword[size]
     test rax,rax
-    je .exit
+    je .error
     mov rbx,rax
 
     invoke GdipGetImageEncoders, qword[numEncoders], qword[size], rbx
     test rax,rax
-    jnz .exit
+    jnz .error
 
     mov r12,rbx
     mov r13,qword[numEncoders]
@@ -37,7 +37,7 @@ frame
     add r12, sizeof.ImageCodecInfo
     dec r13
     jnz @b
-    jmp .exit
+    jmp .error
 
 @@:
     lea rsi, qword[r12 + ImageCodecInfo.Clsid] 
@@ -133,7 +133,7 @@ endp
 
 proc double_buff uses rbx rsi
 
-    mov rsi,rcx ; i hate win11 
+    mov rsi,rcx
 
 frame 
     invoke  GetDC, rcx 

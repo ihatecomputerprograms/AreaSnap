@@ -23,16 +23,6 @@ frame
     
     invoke  RegisterHotKey, NULL, NULL, MOD_SHIFT or MOD_ALT, 0x51
 
-.wait_hotkey:
-    invoke  GetMessage, addr msg_hotkey, 0,0,0
-    cmp [msg_hotkey.message], WM_HOTKEY
-    je .create_window
-
-    invoke  TranslateMessage, addr msg_hotkey
-    invoke  DispatchMessage, addr msg_hotkey
-    jmp .wait_hotkey
-
-.create_window:
     invoke  GetModuleHandle, 0
     mov qword[wc.hInstance], rax
 
@@ -43,6 +33,16 @@ frame
     test rax,rax
     je .error
 
+.wait_hotkey:
+    invoke  GetMessage, addr msg_hotkey, 0,0,0
+    cmp [msg_hotkey.message], WM_HOTKEY
+    je .create_window
+
+    invoke  TranslateMessage, addr msg_hotkey
+    invoke  DispatchMessage, addr msg_hotkey
+    jmp .wait_hotkey
+
+.create_window:
     invoke  CreateWindowEx, WS_EX_LAYERED or WS_EX_TOPMOST or WS_EX_TOOLWINDOW, addr szClass, 0, WS_POPUP or WS_VISIBLE or WS_MAXIMIZE, 0,0,0,0,0,0, addr wc.hInstance, 0
     mov [hwnd],rax
     test rax,rax
@@ -51,16 +51,11 @@ frame
 @@:
     invoke  GetMessage, addr msg, 0,0,0
     test rax,rax
-    je .destroy_window
+    je .wait_hotkey
 
     invoke  TranslateMessage, addr msg
     invoke  DispatchMessage, addr msg
     jmp @b  
-
-.destroy_window:
-    invoke  DestroyWindow, [hwnd]
-    invoke  UnregisterClass, szClass, addr wc.hInstance
-    jmp .wait_hotkey
 
 .error:
     invoke  WaitForSingleObject, [hThread], INFINITE
@@ -82,7 +77,7 @@ proc AreaSnap uses rbx rsi rdi r12 r13 r14 r15
     cmp rdx, WM_KEYDOWN
     je .wmkeydown
     cmp rdx, WM_KILLFOCUS
-    je .wmdestroy        
+    je .wmkillfocus        
     cmp rdx, WM_DESTROY
     je .wmdestroy
     cmp rdx, WM_CREATE
@@ -92,7 +87,7 @@ proc AreaSnap uses rbx rsi rdi r12 r13 r14 r15
 
 .wmkeydown:
     cmp r8d, VK_ESCAPE 
-    je .wmdestroy
+    je .wmkillfocus
     cmp r8d, 0x31  
     je .changext_to_png
     cmp r8d, 0x32  
@@ -123,6 +118,7 @@ proc AreaSnap uses rbx rsi rdi r12 r13 r14 r15
     mov rbx, 0x00006600660069007400
 @@:
     mov qword[encoder+11],rbx
+
     xor rax,rax
     jmp .finish
 
@@ -180,9 +176,9 @@ endf
     jmp .finish   
 
 .lbuttonup:
+    mov r12, rcx 
 
-frame    
-    invoke  SetLayeredWindowAttributes, rcx, 0x00FFFFFF, 0, LWA_COLORKEY or LWA_ALPHA
+    invoke  SetLayeredWindowAttributes, r12, 0x00FFFFFF, 0, LWA_COLORKEY or LWA_ALPHA
     invoke  ReleaseCapture
 
     mov eax,dword[rect.left]
@@ -207,7 +203,17 @@ frame
 
     call  screenshot
 
+    invoke  DestroyWindow, r12
+
+    xor rax,rax  
+    jmp .finish
+
+.wmkillfocus:
+    invoke  DestroyWindow, rcx
+
 .wmdestroy:
+
+frame
     mov byte[flag], 0 
 
     mov dword[rect.left],0
@@ -218,8 +224,8 @@ frame
     invoke  DeleteDC,[hBackDC]
 
     invoke  PostQuitMessage, 0 
-    xor rax,rax
 endf
+    xor rax,rax
 
 .finish:
     ret
@@ -311,8 +317,8 @@ section '.rsrc' resource readable
             'FileDescription', 'AreaSnap',\
             'ProductName', 'AreaSnap',\
             'LegalCopyright', <'@ihatecomputerprograms. 2026'>,\
-            'FileVersion','1.0.2',\
-            'ProductVersion', '1.0.2',\
+            'FileVersion','1.0.3',\
+            'ProductVersion', '1.0.3',\
             'OriginalFilename', 'AREASNAP.EXE'
 
 section '.reloc' data readable discardable fixups

@@ -7,6 +7,10 @@ endl
 frame
 	invoke  RegCreateKeyEx,HKEY_CURRENT_USER,lpSubKey,0,0,REG_OPTION_NON_VOLATILE,KEY_ALL_ACCESS,0,addr phkResult,addr lpdwDisposition
 	cmp [lpdwDisposition], REG_OPENED_EXISTING_KEY
+	jne @f
+
+	invoke  RegQueryValueExA, [phkResult], lpValueName, 0,0,0,0
+	test rax,rax ;ERROR_SUCCESS 
 	je @f
 
 	invoke  MessageBox, 0, lpText, lpValueName, MB_YESNO or MB_ICONQUESTION

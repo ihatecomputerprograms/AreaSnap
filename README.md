@@ -34,5 +34,3 @@ The program automatically adds itself to the Windows startup registry key "SOFTW
 Autoupdate
 ----------
 The program also features automatic updates and `hash verification`, so once downloaded, it will update itself when a new release is available.
-
-Telegram: https://t.me/ComputerGe3k

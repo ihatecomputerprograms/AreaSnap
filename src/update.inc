@@ -102,7 +102,7 @@ proc get_json_value_by_key uses rbx rsi rdi r12 r13 r14 r15, input_key, input_lp
     lea rsi,[r10+rcx]
     mov rdi,r15
     mov rcx,r9
-    dec rcx             ;!
+    dec rcx             
     repe cmpsb    
     jne .search
 
@@ -173,17 +173,17 @@ frame
     test rax,rax
     je @f
 
-    cmp rsi,qword[bytesRead]
+    cmp rsi,[bytesRead]
     jne @f
 
     invoke  BCryptOpenAlgorithmProvider, addr phAlgorithm, BCRYPT_SHA256_ALGORITHM, NULL, 0
-    invoke  BCryptCreateHash, qword[phAlgorithm], addr hHash, 0,0, NULL, 0,0
+    invoke  BCryptCreateHash, [phAlgorithm], addr hHash, 0,0, NULL, 0,0
 
-    invoke  BCryptHashData, qword[hHash], rdi, rsi, 0
+    invoke  BCryptHashData, [hHash], rdi, rsi, 0
 
-    invoke  BCryptFinishHash, qword[hHash], r13, 32, 0   
-    invoke  BCryptDestroyHash, qword[hHash]
-    invoke  BCryptCloseAlgorithmProvider, qword[phAlgorithm], 0
+    invoke  BCryptFinishHash, [hHash], r13, 32, 0   
+    invoke  BCryptDestroyHash, [hHash]
+    invoke  BCryptCloseAlgorithmProvider, [phAlgorithm], 0
 
     invoke  CryptBinaryToString, r13, 32, CRYPT_STRING_HEXRAW, NULL, addr bytesRead2
     invoke  CryptBinaryToString, r13, 32, CRYPT_STRING_HEXRAW, r12, addr bytesRead2
